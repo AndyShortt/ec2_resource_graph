@@ -1,0 +1,122 @@
+import boto3
+import datetime
+import json
+
+ec2 = boto3.client('ec2')
+elbv2 = boto3.client('elbv2')
+s3 = boto3.client('s3')
+
+output = []
+
+def lambda_handler(event, context):
+    
+    #Globals
+    tagName = 'Name'
+    tagValue = 'ec2_tag'
+    bucket = 'your-s3-bucket'
+    
+    #Initial loads
+    instance_info = getInstanceByTag(tagName, tagValue)
+    if not instance_info['Reservations']:
+        return ("No Instances Found")
+        
+    target_groups = getAllTargetGroups()['TargetGroups']
+
+    # Loop through instances
+    for instance in getInstancesFromInfo(instance_info):
+        appendOutput(tagName,tagValue,'Instance',instance['InstanceId'])
+        
+        # Loop through volumes
+        for volume in getVolumeFromInstance(instance):
+            appendOutput(tagName,tagValue,'Volume',volume['Ebs']['VolumeId'])
+            
+            # Loop through snapshots
+            for snapshot in getSnapshotByVolume(volume['Ebs']['VolumeId'])['Snapshots']:
+                appendOutput(tagName,tagValue,'Snapshot',snapshot['SnapshotId'])
+        
+        # Loop through target groups
+        for target_group in target_groups:
+            
+            if target_group['TargetType'] == 'instance':
+                
+                targetHasInstance = False
+                
+                # Loop through targets
+                for target in getTargetGroupByBalancer(target_group['TargetGroupArn'])['TargetHealthDescriptions']:
+                    if target['Target']['Id'] == instance['InstanceId']:
+                        targetHasInstance = True
+                    
+                if targetHasInstance:
+                    for balancerArn in target_group['LoadBalancerArns']:
+                        appendOutput(tagName,tagValue,'Balancer',balancerArn)
+            
+            ## TODO: Discover load balancers based on instance IP address
+    
+    writeToFile(tagValue,output)
+    moveToS3(tagValue,bucket)
+    return ("Resource File Generated and Uploaded")
+    #print (json.dumps(instance_info, default=datetime_handler))
+
+def appendOutput(tagName, tagValue, resourceType, Id):
+
+    output.append({tagName:tagValue,'ResourceType':resourceType, 'Id':Id})
+
+def writeToFile(filename, jsonFile):
+    
+    with open('//tmp/{}.json'.format(filename), 'w') as outfile:
+        json.dump(jsonFile, outfile)
+        
+def moveToS3(filename, bucket):
+
+    response = s3.upload_file('//tmp/{}.json'.format(filename), bucket, 'resources/{}.json'.format(filename))
+    
+def getInstanceByTag(tagName, tagValue):
+    
+    response = ec2.describe_instances(
+    Filters=[
+            {
+                'Name': 'tag:{}'.format(tagName),
+                'Values': [tagValue,],
+            },
+        ],
+    )
+    return (response)
+
+
+def getSnapshotByVolume(volumeId):
+    
+    response = ec2.describe_snapshots(
+    Filters=[
+            {
+                'Name': 'volume-id',
+                'Values': [volumeId,],
+            },
+        ],
+    )
+    return (response)
+
+
+def getAllTargetGroups():
+    
+    response = elbv2.describe_target_groups()
+    return (response)
+
+
+def getTargetGroupByBalancer(balancerARN):
+    
+    response = elbv2.describe_target_health(
+    TargetGroupArn=balancerARN)
+    return (response)
+
+def getInstancesFromInfo(instance_info):
+    
+    return (instance_info['Reservations'][0]['Instances'])
+
+def getVolumeFromInstance(instance):
+
+    return (instance['BlockDeviceMappings'])
+
+def datetime_handler(x):
+    if isinstance(x, datetime.datetime):
+        return x.isoformat()
+    raise TypeError("Unknown type")

@@ -1,6 +1,7 @@
 import boto3
 import datetime
 import json
+import os
 
 ec2 = boto3.client('ec2')
 elbv2 = boto3.client('elbv2')
@@ -64,6 +65,9 @@ def appendOutput(tagName, tagValue, resourceType, Id):
 
 def writeToFile(filename, jsonFile):
     
+    if os.path.exists('//tmp/{}.json'.format(filename)):
+        os.remove('//tmp/{}.json'.format(filename))
+
     with open('//tmp/{}.json'.format(filename), 'w') as outfile:
         json.dump(jsonFile, outfile)
         

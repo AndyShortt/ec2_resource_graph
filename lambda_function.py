@@ -23,34 +23,35 @@ def lambda_handler(event, context):
     target_groups = getAllTargetGroups()['TargetGroups']
 
     # Loop through instances
-    for instance in getInstancesFromInfo(instance_info):
-        appendOutput(tagName,tagValue,'Instance',instance['InstanceId'])
-        
-        # Loop through volumes
-        for volume in getVolumeFromInstance(instance):
-            appendOutput(tagName,tagValue,'Volume',volume['Ebs']['VolumeId'])
+    for reservation in getReservationFromInfo(instance_info):
+        for instance in getInstancesFromReservation(reservation):
+            appendOutput(tagName,tagValue,'Instance',instance['InstanceId'])
             
-            # Loop through snapshots
-            for snapshot in getSnapshotByVolume(volume['Ebs']['VolumeId'])['Snapshots']:
-                appendOutput(tagName,tagValue,'Snapshot',snapshot['SnapshotId'])
-        
-        # Loop through target groups
-        for target_group in target_groups:
+            # Loop through volumes
+            for volume in getVolumeFromInstance(instance):
+                appendOutput(tagName,tagValue,'Volume',volume['Ebs']['VolumeId'])
+                
+                # Loop through snapshots
+                for snapshot in getSnapshotByVolume(volume['Ebs']['VolumeId'])['Snapshots']:
+                    appendOutput(tagName,tagValue,'Snapshot',snapshot['SnapshotId'])
             
-            if target_group['TargetType'] == 'instance':
+            # Loop through target groups
+            for target_group in target_groups:
                 
-                targetHasInstance = False
-                
-                # Loop through targets
-                for target in getTargetGroupByBalancer(target_group['TargetGroupArn'])['TargetHealthDescriptions']:
-                    if target['Target']['Id'] == instance['InstanceId']:
-                        targetHasInstance = True
+                if target_group['TargetType'] == 'instance':
                     
-                if targetHasInstance:
-                    for balancerArn in target_group['LoadBalancerArns']:
-                        appendOutput(tagName,tagValue,'Balancer',balancerArn)
-            
-            ## TODO: Discover load balancers based on instance IP address
+                    targetHasInstance = False
+                    
+                    # Loop through targets
+                    for target in getTargetGroupByBalancer(target_group['TargetGroupArn'])['TargetHealthDescriptions']:
+                        if target['Target']['Id'] == instance['InstanceId']:
+                            targetHasInstance = True
+                        
+                    if targetHasInstance:
+                        for balancerArn in target_group['LoadBalancerArns']:
+                            appendOutput(tagName,tagValue,'Balancer',balancerArn)
+                
+                ## TODO: Discover load balancers based on instance IP address
     
     writeToFile(tagValue,output)
     moveToS3(tagValue,bucket)
@@ -108,9 +109,13 @@ def getTargetGroupByBalancer(balancerARN):
     TargetGroupArn=balancerARN)
     return (response)
 
-def getInstancesFromInfo(instance_info):
+def getInstancesFromReservation(reservation):
     
-    return (instance_info['Reservations'][0]['Instances'])
+    return (reservation['Instances'])
+
+def getReservationFromInfo(instance_info):
+
+    return (instance_info['Reservations'])
 
 def getVolumeFromInstance(instance):
 

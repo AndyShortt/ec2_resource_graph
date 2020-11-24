@@ -18,8 +18,8 @@ def lambda_handler(event, context):
 
     # Inputs
     tagName = 'Name'
-    tagValue = 'DemoNginx-nodegroup-Node'
-    bucket = 'shortt-doc-bucket'
+    tagValue = 'ec2-tag-value'
+    bucket = 'sample-s3-bucket'
     
     # Initial loads
     target_groups = getAllTargetGroups()['TargetGroups']

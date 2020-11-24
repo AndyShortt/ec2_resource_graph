@@ -28,7 +28,6 @@ def lambda_handler(event, context):
     if not instance_info['Reservations']:
         return ("No Instances Found")
         
-
     # Loop through instances
     for reservation in getReservationFromInfo(instance_info):
         for instance in getInstancesFromReservation(reservation):
@@ -86,10 +85,12 @@ def appendOutput(tagName, tagValue, resourceType, Id):
 
     output.append({tagName:tagValue,'ResourceType':resourceType, 'Id':Id})
 
-def writeToFile(filename, jsonFile):
-
+def writeToFile(filename, jsonfile):
+    
     with open('//tmp/{}.json'.format(filename), 'w') as outfile:
-        json.dump(jsonFile, outfile)
+        for element in jsonfile:
+            json.dump(element, outfile)
+            outfile.write("\n")
         
 def moveToS3(filename, bucket):
 

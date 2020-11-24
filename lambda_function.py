@@ -5,6 +5,7 @@ import os
 
 ec2 = boto3.client('ec2')
 elbv2 = boto3.client('elbv2')
+elb = boto3.client('elb')
 s3 = boto3.client('s3')
 
 output = []
@@ -21,11 +22,12 @@ def lambda_handler(event, context):
     bucket = 'shortt-doc-bucket'
     
     # Initial loads
+    target_groups = getAllTargetGroups()['TargetGroups']
+    classic_elbs = getAllClassicLoadBalancers()['LoadBalancerDescriptions']
     instance_info = getInstanceByTag(tagName, tagValue)
     if not instance_info['Reservations']:
         return ("No Instances Found")
         
-    target_groups = getAllTargetGroups()['TargetGroups']
 
     # Loop through instances
     for reservation in getReservationFromInfo(instance_info):
@@ -44,7 +46,20 @@ def lambda_handler(event, context):
                 for snapshot in getSnapshotByVolume(volume['Ebs']['VolumeId'])['Snapshots']:
                     appendOutput(tagName,tagValue,'Snapshot',snapshot['SnapshotId'])
             
-            # Loop through Target Groups
+            # Loop through ELBs (classic load balancers)
+            for elb in classic_elbs:
+                
+                elbHasInstance = False
+                
+                for instance in elb['Instances']:
+                    
+                    if instance['InstanceId'] == instance['InstanceId']:
+                        elbHasInstance = True
+                
+                if elbHasInstance:
+                    appendOutput(tagName,tagValue,'Balancer',elb['LoadBalancerName'])
+            
+            # Loop through Target Groups (For ALB/NLBs)
             for target_group in target_groups:
                 
                 if target_group['TargetType'] == 'instance':
@@ -111,11 +126,15 @@ def getAllTargetGroups():
     response = elbv2.describe_target_groups()
     return (response)
 
-
 def getTargetGroupByBalancer(balancerARN):
     
     response = elbv2.describe_target_health(
     TargetGroupArn=balancerARN)
+    return (response)
+
+def getAllClassicLoadBalancers():
+    
+    response = elb.describe_load_balancers()
     return (response)
 
 def getInstancesFromReservation(reservation):

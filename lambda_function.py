@@ -17,8 +17,8 @@ def lambda_handler(event, context):
 
     # Inputs
     tagName = 'Name'
-    tagValue = 'ec2_tag'
-    bucket = 'your-s3-bucket'
+    tagValue = 'DemoNginx-nodegroup-Node'
+    bucket = 'shortt-doc-bucket'
     
     # Initial loads
     instance_info = getInstanceByTag(tagName, tagValue)
@@ -32,22 +32,26 @@ def lambda_handler(event, context):
         for instance in getInstancesFromReservation(reservation):
             appendOutput(tagName,tagValue,'Instance',instance['InstanceId'])
             
-            # Loop through volumes
+            # Loop through Elastic IPs
+            for address in getEIPByInstance(instance)['Addresses']:
+                appendOutput(tagName,tagValue,'ElasticIP',address['PublicIp'])
+            
+            # Loop through Volumes
             for volume in getVolumeFromInstance(instance):
                 appendOutput(tagName,tagValue,'Volume',volume['Ebs']['VolumeId'])
                 
-                # Loop through snapshots
+                # Loop through Snapshots
                 for snapshot in getSnapshotByVolume(volume['Ebs']['VolumeId'])['Snapshots']:
                     appendOutput(tagName,tagValue,'Snapshot',snapshot['SnapshotId'])
             
-            # Loop through target groups
+            # Loop through Target Groups
             for target_group in target_groups:
                 
                 if target_group['TargetType'] == 'instance':
                     
                     targetHasInstance = False
                     
-                    # Loop through targets
+                    # Loop through Targets
                     for target in getTargetGroupByBalancer(target_group['TargetGroupArn'])['TargetHealthDescriptions']:
                         if target['Target']['Id'] == instance['InstanceId']:
                             targetHasInstance = True
@@ -117,6 +121,18 @@ def getTargetGroupByBalancer(balancerARN):
 def getInstancesFromReservation(reservation):
     
     return (reservation['Instances'])
+
+def getEIPByInstance(instance):
+    
+    response = ec2.describe_addresses(
+    Filters=[
+            {
+                'Name': 'instance-id',
+                'Values': [instance['InstanceId'],],
+            },
+        ],
+    )
+    return (response)
 
 def getReservationFromInfo(instance_info):
 

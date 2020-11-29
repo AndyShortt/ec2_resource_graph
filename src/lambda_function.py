@@ -2,10 +2,11 @@ import boto3
 import datetime
 import json
 import os
+from ec2_helper import EC2Helper
+from elb_helper import ELBHelper
 
-ec2 = boto3.client('ec2')
-elbv2 = boto3.client('elbv2')
-elb = boto3.client('elb')
+elb_helper = ELBHelper()
+ec2_helper = EC2Helper()
 s3 = boto3.client('s3')
 
 output = []
@@ -15,34 +16,34 @@ def lambda_handler(event, context):
     # Globals
     global output
     output = []
-
+    
     # Inputs
     tagName = 'Name'
     tagValue = 'ec2-tag-value'
     bucket = 'sample-s3-bucket'
     
     # Initial loads
-    target_groups = getAllTargetGroups()['TargetGroups']
-    classic_elbs = getAllClassicLoadBalancers()['LoadBalancerDescriptions']
-    instance_info = getInstanceByTag(tagName, tagValue)
+    target_groups = elb_helper.getAllTargetGroups()['TargetGroups']
+    classic_elbs = elb_helper.getAllClassicLoadBalancers()['LoadBalancerDescriptions']
+    instance_info = ec2_helper.getInstanceByTag(tagName, tagValue)
     if not instance_info['Reservations']:
         return ("No Instances Found")
         
     # Loop through instances
-    for reservation in getReservationFromInfo(instance_info):
-        for instance in getInstancesFromReservation(reservation):
+    for reservation in ec2_helper.getReservationFromInfo(instance_info):
+        for instance in ec2_helper.getInstancesFromReservation(reservation):
             appendOutput(tagName,tagValue,'Instance',instance['InstanceId'])
             
             # Loop through Elastic IPs
-            for address in getEIPByInstance(instance)['Addresses']:
+            for address in ec2_helper.getEIPByInstance(instance)['Addresses']:
                 appendOutput(tagName,tagValue,'ElasticIP',address['PublicIp'])
             
             # Loop through Volumes
-            for volume in getVolumeFromInstance(instance):
+            for volume in ec2_helper.getVolumeFromInstance(instance):
                 appendOutput(tagName,tagValue,'Volume',volume['Ebs']['VolumeId'])
                 
                 # Loop through Snapshots
-                for snapshot in getSnapshotByVolume(volume['Ebs']['VolumeId'])['Snapshots']:
+                for snapshot in ec2_helper.getSnapshotByVolume(volume['Ebs']['VolumeId'])['Snapshots']:
                     appendOutput(tagName,tagValue,'Snapshot',snapshot['SnapshotId'])
             
             # Loop through ELBs (classic load balancers)
@@ -66,7 +67,7 @@ def lambda_handler(event, context):
                     targetHasInstance = False
                     
                     # Loop through Targets
-                    for target in getTargetGroupByBalancer(target_group['TargetGroupArn'])['TargetHealthDescriptions']:
+                    for target in elb_helper.getTargetGroupByBalancer(target_group['TargetGroupArn'])['TargetHealthDescriptions']:
                         if target['Target']['Id'] == instance['InstanceId']:
                             targetHasInstance = True
                         
@@ -95,72 +96,7 @@ def writeToFile(filename, jsonfile):
 def moveToS3(filename, bucket):
 
     response = s3.upload_file('//tmp/{}.json'.format(filename), bucket, 'resources/{}.json'.format(filename))
-    
-def getInstanceByTag(tagName, tagValue):
-    
-    response = ec2.describe_instances(
-    Filters=[
-            {
-                'Name': 'tag:{}'.format(tagName),
-                'Values': [tagValue,],
-            },
-        ],
-    )
-    return (response)
 
-
-def getSnapshotByVolume(volumeId):
-    
-    response = ec2.describe_snapshots(
-    Filters=[
-            {
-                'Name': 'volume-id',
-                'Values': [volumeId,],
-            },
-        ],
-    )
-    return (response)
-
-
-def getAllTargetGroups():
-    
-    response = elbv2.describe_target_groups()
-    return (response)
-
-def getTargetGroupByBalancer(balancerARN):
-    
-    response = elbv2.describe_target_health(
-    TargetGroupArn=balancerARN)
-    return (response)
-
-def getAllClassicLoadBalancers():
-    
-    response = elb.describe_load_balancers()
-    return (response)
-
-def getInstancesFromReservation(reservation):
-    
-    return (reservation['Instances'])
-
-def getEIPByInstance(instance):
-    
-    response = ec2.describe_addresses(
-    Filters=[
-            {
-                'Name': 'instance-id',
-                'Values': [instance['InstanceId'],],
-            },
-        ],
-    )
-    return (response)
-
-def getReservationFromInfo(instance_info):
-
-    return (instance_info['Reservations'])
-
-def getVolumeFromInstance(instance):
-
-    return (instance['BlockDeviceMappings'])
 
 def datetime_handler(x):
     if isinstance(x, datetime.datetime):

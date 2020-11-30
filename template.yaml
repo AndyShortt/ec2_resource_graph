@@ -1,6 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: An AWS Serverless Specification template describing your function.
+Parameters:
+  Key:
+    Type: 'String'
+  Value:
+    Type: 'String'
+  DestinationBucket:
+    Type: 'String'
 Resources:
   lambdaResourceGraph:
     Type: 'AWS::Serverless::Function'
@@ -12,6 +19,11 @@ Resources:
       Timeout: 15
       Role: !GetAtt roleLambdaResourceGraph.Arn
       CodeUri: src/
+      Environment:
+        Variables:
+          TagName: !Ref Key
+          TagValue: !Ref Value
+          DestinationBucket: !Ref DestinationBucket
   
   roleLambdaResourceGraph:
     Type: AWS::IAM::Role

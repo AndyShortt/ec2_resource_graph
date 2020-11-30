@@ -1,8 +1,18 @@
 import boto3
+from botocore.config import Config
 
 ec2 = boto3.client('ec2')
 
 class EC2Helper(object):
+    
+    def setRegion(self, region):
+        
+        my_config = Config(
+        region_name = region
+        )
+        
+        global ec2
+        ec2 = boto3.client('ec2', config=my_config)
 
     def getInstanceByTag(self, tagName, tagValue):
         
@@ -56,3 +66,24 @@ class EC2Helper(object):
     def getVolumeFromInstance(self, instance):
     
         return (instance['BlockDeviceMappings'])
+        
+        
+    def appendOutput(self, tagName, tagValue, resourceType, Id):
+
+        if resourceType == 'Instance':
+            
+            output = {tagName:tagValue,'ResourceType':resourceType, 'Id':Id}
+        
+        elif resourceType == 'ElasticIP':
+            
+            output = {tagName:tagValue,'ResourceType':resourceType, 'Id':Id}
+        
+        elif resourceType == 'Volume':
+        
+            output = {tagName:tagValue,'ResourceType':resourceType, 'Id':Id}
+        
+        elif resourceType == 'Snapshot':
+        
+            output = {tagName:tagValue,'ResourceType':resourceType, 'Id':Id}
+        
+        return (output)

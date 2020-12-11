@@ -1,7 +1,6 @@
 import boto3
 import datetime
 import json
-import os
 from ec2_helper import EC2Helper
 from elb_helper import ELBHelper
 
@@ -9,30 +8,41 @@ elb_helper = ELBHelper()
 ec2_helper = EC2Helper()
 s3 = boto3.client('s3')
 
-
 def lambda_handler(event, context):
+    # The purpose of this function is to place a json file in s3 that contains
+    #   the various resources associated with ec2 instances that have a certain
+    #   tag. For example, if you have 3 ec2 instances with Name:Client1 in
+    #   us-east1, then this lambda function should print those instances and
+    #   associated ELBS/snapshots/loadbalancers to the file.
+    #
+    # The expected downstream use of this s3 file is AWS Glue and Athena
 
-    setRegion('us-east-1')
+    # Inputs sent during lambda invoke
+    tagName = event['TagName']
+    tagValue = event['TagValue']
+    bucket = event['DestinationBucket']
+    region = event['Region']
+    account = event['Account']
+    role = event['LambdaRole']
     
-    # Inputs
-    tagName = os.environ.get("TagName")
-    tagValue = os.environ.get("TagValue")
-    bucket = os.environ.get("DestinationBucket")
+    #helper function to set ELB/EC2 API regions
+    # NOTE: We do not change s3 region, assumes lambda runs in same region as bucket
+    elb_helper.setConfig(region, account, role)
+    ec2_helper.setConfig(region, account, role)
     
+    # discover resources and add to JSON
     output = discoverResources(tagName,tagValue)
     
+    # If we don't find any ec2 instances, we are done. otherwise generate file
     if output == 'No Instances Found':
+        print(output)
         return(output)
     else:
-        return (save_and_export(tagName, tagValue, bucket, output))
+        return (save_and_export(tagName, tagValue, region, account, bucket, output))
 
-def setRegion(region):
-
-    elb_helper.setRegion(region)
-    ec2_helper.setRegion(region)
-    
 
 def discoverResources(tagName,tagValue):
+    #iterates through resources adding them to the JSON output
     
     # Initial loads
     output = []
@@ -67,6 +77,7 @@ def discoverResources(tagName,tagValue):
                 
                 for elbinstance in elb['Instances']:
                     
+                    # Checks if ELB has instance as target
                     if elbinstance['InstanceId'] == instance['InstanceId']:
                         elbHasInstance = True
                 
@@ -82,6 +93,8 @@ def discoverResources(tagName,tagValue):
                     
                     # Loop through Targets
                     for target in elb_helper.getTargetGroupByBalancer(target_group['TargetGroupArn'])['TargetHealthDescriptions']:
+                        
+                        # Checks if NLB/ALB has instance as target
                         if target['Target']['Id'] == instance['InstanceId']:
                             targetHasInstance = True
                         
@@ -90,16 +103,18 @@ def discoverResources(tagName,tagValue):
                             output.append(elb_helper.appendOutput(tagName,tagValue,'LoadBalancer',balancerArn))
                 
                     ## TODO: Discover load balancers based on instance IP address
+                    
     return (output)
 
+def save_and_export (tagName, tagValue, region, account, bucket, result):
 
-def save_and_export (tagName, tagValue, bucket, result):
-
-    writeToFile(tagValue,result)
-    moveToS3(tagValue,bucket)
+    filename = '{}_{}_{}'.format(tagValue, region, account)
+    
+    writeToFile(filename,result)
+    moveToS3(filename,bucket)
     return ("Resource File Generated and Uploaded")
     #print (json.dumps(instance_info, default=datetime_handler))
-
+    
 
 def writeToFile(filename, jsonfile):
     

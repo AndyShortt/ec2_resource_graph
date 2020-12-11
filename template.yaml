@@ -8,7 +8,27 @@ Parameters:
     Type: 'String'
   DestinationBucket:
     Type: 'String'
+  LambdaRole:
+    Type: 'String'
 Resources:
+  lambdaController:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.6
+      Description: ''
+      MemorySize: 128
+      Timeout: 300
+      Role: !GetAtt roleLambdaController.Arn
+      CodeUri: lambdaController/
+      Environment:
+        Variables:
+          TagName: !Ref Key
+          TagValue: !Ref Value
+          DestinationBucket: !Ref DestinationBucket
+          LambdaRole: !Ref LambdaRole
+          LambdaFunction: !Ref lambdaResourceGraph
+          
   lambdaResourceGraph:
     Type: 'AWS::Serverless::Function'
     Properties:
@@ -18,12 +38,33 @@ Resources:
       MemorySize: 128
       Timeout: 15
       Role: !GetAtt roleLambdaResourceGraph.Arn
-      CodeUri: src/
-      Environment:
-        Variables:
-          TagName: !Ref Key
-          TagValue: !Ref Value
-          DestinationBucket: !Ref DestinationBucket
+      CodeUri: lambdaResourceGraph/
+  
+  roleLambdaController:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: invoke
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'lambda:InvokeFunction'
+                Resource:
+                  - !GetAtt lambdaResourceGraph.Arn
   
   roleLambdaResourceGraph:
     Type: AWS::IAM::Role
@@ -49,6 +90,7 @@ Resources:
                 Action:
                   - 'ec2:Describe*'
                   - 'elasticloadbalancing:Describe*'
+                  - 'sts:AssumeRole'
                 Resource:
                   - '*'
         - PolicyName: s3_writer

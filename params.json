@@ -1,0 +1,8 @@
+{
+  "regions": ["us-east-1", "us-west-2", "ca-central-1", "eu-west-1", "ap-southeast-1"],
+  "accounts": ["123456789012","098765432109"],
+  "tagName": "Name",
+  "tagValue": "Client1",
+  "outputBucket": "s3-data-bucket",
+  "lambdaRole": "ResourceDiscoveryLambda"
+}

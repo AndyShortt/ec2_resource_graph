@@ -1,5 +1,6 @@
 import boto3
 import os
+from datetime import datetime
 from botocore.config import Config
 
 ec2 = boto3.client('ec2')
@@ -30,7 +31,7 @@ class EC2Helper(object):
         # get credentials for new account/role
         assumed_role_object=sts.assume_role(
             RoleArn="arn:aws:iam::{}:role/{}".format(account, newRole),
-            RoleSessionName="TagedResourceDiscovery"
+            RoleSessionName="EC2Discovery"
             )
         credentials=assumed_role_object['Credentials']
         
@@ -123,21 +124,11 @@ class EC2Helper(object):
     def appendOutput(self, tagName, tagValue, resourceType, Id):
         
         #adds ec2/ebs/snapshot/EIP to the output JSON in proper format
-
-        if resourceType == 'Instance':
-            
-            output = {tagName:tagValue,'Region':region,'Account':account,'ResourceType':resourceType, 'Id':Id}
+        Identifier = Id
+        dateValue = datetime.now().isoformat()
         
-        elif resourceType == 'ElasticIP':
-            
-            output = {tagName:tagValue,'Region':region,'Account':account,'ResourceType':resourceType, 'Id':Id}
+        if resourceType == 'Snapshot':
+            Identifier = "arn:aws:ec2:" + region + ":" + account + ":snapshot/" + Id
         
-        elif resourceType == 'Volume':
-        
-            output = {tagName:tagValue,'Region':region,'Account':account,'ResourceType':resourceType, 'Id':Id}
-        
-        elif resourceType == 'Snapshot':
-        
-            output = {tagName:tagValue,'Region':region,'Account':account,'ResourceType':resourceType, 'Id':Id}
-        
+        output = {'TagName':tagName, 'TagValue':tagValue,'Region':region,'Account':account,'ResourceType':resourceType, 'Id':Identifier, 'Date':dateValue}
         return (output)

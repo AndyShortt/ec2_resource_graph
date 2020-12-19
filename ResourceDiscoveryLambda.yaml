@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Role for lambda function to view infrastructure
+Parameters:
+  LambdaAccountId:
+    Type: 'String'
+    Description: Account ID where lambda function will run.
+Resources:
+    ResourceDiscoveryLambda:
+        Type: AWS::IAM::Role
+        Properties:
+          RoleName: 'ResourceDiscoveryLambda'
+          AssumeRolePolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Principal:
+                  AWS:
+                    Fn::Join: 
+                      - ""
+                      - 
+                        - "arn:aws:iam::"
+                        - !Ref LambdaAccountId
+                        - ":role/ResourceDiscoveryLambda"
+                Action:
+                  - 'sts:AssumeRole'
+          Path: /
+          ManagedPolicyArns:
+            - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+          Policies:
+            - PolicyName: describe
+              PolicyDocument:
+                Version: 2012-10-17
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - 'ec2:Describe*'
+                      - 'elasticloadbalancing:Describe*'
+                    Resource:
+                      - '*'
+            - PolicyName: assume
+              PolicyDocument:
+                Version: 2012-10-17
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - 'sts:AssumeRole'
+                    Resource:
+                      - '*'
+            - PolicyName: write
+              PolicyDocument:
+                Version: 2012-10-17
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - 's3:GetObject'
+                      - 's3:PutObject'
+                    Resource: 
+                      - '*'

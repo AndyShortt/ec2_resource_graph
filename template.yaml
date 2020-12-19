@@ -1,15 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
-Description: An AWS Serverless Specification template describing your function.
-Parameters:
-  Key:
-    Type: 'String'
-  Value:
-    Type: 'String'
-  DestinationBucket:
-    Type: 'String'
-  LambdaRole:
-    Type: 'String'
+Description: SAM spec for Resource Discovery lambdas/roles
 Resources:
   lambdaController:
     Type: 'AWS::Serverless::Function'
@@ -23,10 +14,6 @@ Resources:
       CodeUri: lambdaController/
       Environment:
         Variables:
-          TagName: !Ref Key
-          TagValue: !Ref Value
-          DestinationBucket: !Ref DestinationBucket
-          LambdaRole: !Ref LambdaRole
           LambdaFunction: !Ref lambdaResourceGraph
           
   lambdaResourceGraph:
@@ -37,7 +24,7 @@ Resources:
       Description: ''
       MemorySize: 128
       Timeout: 15
-      Role: !GetAtt roleLambdaResourceGraph.Arn
+      Role: !GetAtt roleResourceDiscoveryLambda.Arn
       CodeUri: lambdaResourceGraph/
   
   roleLambdaController:
@@ -65,10 +52,11 @@ Resources:
                   - 'lambda:InvokeFunction'
                 Resource:
                   - !GetAtt lambdaResourceGraph.Arn
-  
-  roleLambdaResourceGraph:
+                  
+  roleResourceDiscoveryLambda:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: ResourceDiscoveryLambda
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -78,11 +66,22 @@ Resources:
               - lambda.amazonaws.com
             Action:
               - 'sts:AssumeRole'
+          - Effect: Allow
+            Principal:
+              AWS:
+                  Fn::Join: 
+                    - ""
+                    - 
+                      - "arn:aws:iam::"
+                      - !Ref "AWS::AccountId"
+                      - ":root"
+            Action:
+              - 'sts:AssumeRole'
       Path: /
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: reader
+        - PolicyName: describe
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -90,10 +89,18 @@ Resources:
                 Action:
                   - 'ec2:Describe*'
                   - 'elasticloadbalancing:Describe*'
+                Resource:
+                  - '*'
+        - PolicyName: assume
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
                   - 'sts:AssumeRole'
                 Resource:
                   - '*'
-        - PolicyName: s3_writer
+        - PolicyName: write
           PolicyDocument:
             Version: 2012-10-17
             Statement:

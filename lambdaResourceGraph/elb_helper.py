@@ -1,5 +1,6 @@
 import boto3
 import os
+from datetime import datetime
 from botocore.config import Config
 
 elbv2 = boto3.client('elbv2')
@@ -31,7 +32,7 @@ class ELBHelper(object):
         # get credentials for new account/role
         assumed_role_object=sts.assume_role(
             RoleArn="arn:aws:iam::{}:role/{}".format(account, newRole),
-            RoleSessionName="TagedResourceDiscovery"
+            RoleSessionName="ELBDiscovery"
             )
         credentials=assumed_role_object['Credentials']
         
@@ -90,13 +91,11 @@ class ELBHelper(object):
     def appendOutput(self, tagName, tagValue, resourceType, Id):
 
         #adds ELB/ALB/NLB to the output JSON in proper format
+        Identifier = Id
+        dateValue = datetime.now().isoformat()
 
         if resourceType == 'LoadBalancerClassic':
-            
-            output = {tagName:tagValue,'Region':region,'Account':account,'ResourceType':resourceType, 'Id':Id}
+            Identifier = "arn:aws:elasticloadbalancing:" + region + ":" + account + ":loadbalancer/" + Id
         
-        elif resourceType == 'LoadBalancer':
-        
-            output = {tagName:tagValue,'Region':region,'Account':account,'ResourceType':resourceType, 'Id':Id}
-        
+        output = {'TagName':tagName, 'TagValue':tagValue,'Region':region,'Account':account,'ResourceType':resourceType, 'Id':Identifier, 'Date':dateValue}
         return (output)

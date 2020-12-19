@@ -8,28 +8,21 @@ lambdaclient = boto3.client('lambda')
 def lambda_handler(event, context):
     
     # Inputs
-    regions = 'us-east-1, us-west-2, ca-central-1, eu-west-1, ap-southeast-1'
-    accounts = '313021996969'
-    lambdaRole = os.environ.get("LambdaRole")
+    regions = event['regions']
+    accounts = event['accounts']
+    lambdaRole = event['lambdaRole']
     functionName = os.environ.get("LambdaFunction")
-    tagName = os.environ.get("TagName")
-    tagValue = os.environ.get("TagValue")
-    bucket = os.environ.get("DestinationBucket")
+    tagName = event['tagName']
+    tagValue = event['tagValue']
+    bucket = event['outputBucket']
     
-    try:
-        accountList = accounts.split(",")
-        regionList = regions.split(",")
-    except:
-        return("Input error, unable to parse account/region list")
-    
-    
-    if len(accountList) < 1 or len(regionList) < 1:
+    if len(accounts) < 1 or len(regions) < 1:
         return("Input error, no regions or accounts entered")
     
-    for account in accountList:
+    for account in accounts:
         account = account.strip()
         
-        for region in regionList:
+        for region in regions:
             region = region.strip()
             
             params = {

@@ -2,7 +2,7 @@
 
 ## What it does
 
-Traverses resource associations based on an EC2 tag. Currently includes EBS volumes, snapshots, and ALB/NLB.
+Traverses resource associations based on an EC2 tag. Puts output into JSON file in S3 (for use by Glue/Athena). Currently includes EC2 instances, EBS volumes, snapshots, and ALB/NLB, EIP, Classic LB.
 
 ## Pre-requisits
 AWS API and SAM CLI installed

@@ -24,6 +24,6 @@ $ sam deploy --guided --capabilities CAPABILITY_NAMED_IAM
 5.Update parameters in params.json to reflect the EC2 tags, accounts, regions, and output bucket for S3 files.
 6. Find the "lambaController" lambda function that SAM created in the lambda console. Note the name. Invoke lambda from root directory
 ```sh  
-$ aws lambda invoke --function-name your-app-lambdaController-123 --payload file://my_params.json out.txt
+$ aws lambda invoke --function-name your-app-lambdaController-123 --payload file://params.json out.txt
 ```  
 7. Check s3 bucket for output

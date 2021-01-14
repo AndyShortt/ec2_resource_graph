@@ -6,7 +6,7 @@ Traverses resource associations based on an EC2 tag. Puts output into JSON file 
 
 ## Pre-requisits
 AWS API and SAM CLI installed
-Note: AWS Cloud9 was used in development, these come pre-installed
+Note: AWS Cloud9 on Amazon Linux2 was used in development, or AWS CloudShell. These come pre-installed.
 
 ## Deployment
 
